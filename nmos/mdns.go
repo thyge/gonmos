@@ -3,9 +3,7 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"log"
-	"net/http"
 	"time"
 
 	"github.com/grandcat/zeroconf"
@@ -17,34 +15,39 @@ var (
 	waitTime = flag.Int("wait", 10, "Duration in [s] to run discovery.")
 )
 
-func baseHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println(r)
+type NMOSMdnsService struct {
+	Resolver        *zeroconf.Resolver
+	RegistryEntries []zeroconf.ServiceEntry
 }
 
-func registrationHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println(r)
+type MDNSEntry struct {
 }
 
-func main() {
-	flag.Parse()
+func (nms NMOSMdnsService) MDNSPrintCallback(results <-chan *zeroconf.ServiceEntry) {
+	for entry := range results {
+		nms.RegistryEntries = append(nms.RegistryEntries, *entry)
+	}
+}
+
+func CreateMDNService() NMOSMdnsService {
+	mdns := new(NMOSMdnsService)
+	service := "_nmos-register._tcp"
+	domain := "local"
+	waitTime := 1
 
 	// Discover all services on the network (e.g. _workstation._tcp)
 	resolver, err := zeroconf.NewResolver(nil)
 	if err != nil {
 		log.Fatalln("Failed to initialize resolver:", err.Error())
 	}
+	mdns.Resolver = resolver
 
 	entries := make(chan *zeroconf.ServiceEntry)
-	go func(results <-chan *zeroconf.ServiceEntry) {
-		for entry := range results {
-			log.Println(entry)
-		}
-		log.Println("No more entries.")
-	}(entries)
+	go mdns.MDNSPrintCallback(entries)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(*waitTime))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(waitTime))
 	defer cancel()
-	err = resolver.Browse(ctx, *service, *domain, entries)
+	err = mdns.Resolver.Browse(ctx, service, domain, entries)
 	if err != nil {
 		log.Fatalln("Failed to browse:", err.Error())
 	}
@@ -52,4 +55,10 @@ func main() {
 	<-ctx.Done()
 	// Wait some additional time to see debug messages on go routine shutdown.
 	time.Sleep(1 * time.Second)
+
+	for entry := range mdns.RegistryEntries {
+		print(entry)
+	}
+
+	return *mdns
 }

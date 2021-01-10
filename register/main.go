@@ -95,5 +95,5 @@ func handleRequests() {
 	myRouter.HandleFunc("/x-nmos/registration/{version}", handleRegBase)
 	myRouter.HandleFunc("/x-nmos/registration/{version}/resource", handleRegResource)
 	myRouter.HandleFunc("/x-nmos/registration/{version}/health", handleRegHealth)
-	log.Fatal(http.ListenAndServe(":80", myRouter))
+	log.Fatal(http.ListenAndServe(":3232", myRouter))
 }
