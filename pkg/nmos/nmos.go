@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 )
 
-type NMOSNode struct {
+type NMOSNodeData struct {
 	Version     string           `json:"version"`
 	Hostname    string           `json:"hostname"`
 	Label       string           `json:"label"`
@@ -22,7 +22,7 @@ type NMOSNode struct {
 	Interfaces  []NMOSInterface  `json:"interfaces"`
 }
 
-func (n *NMOSNode) Init() {
+func (n *NMOSNodeData) Init() {
 	hosnam, _ := os.Hostname()
 	n.Description = fmt.Sprintf("%s-node", hosnam)
 	n.Version = "1441973902:879053935"
@@ -42,8 +42,8 @@ func (n *NMOSNode) Init() {
 }
 
 type NMOSTypeHolder struct {
-	Type string   `json:"type"`
-	Data NMOSNode `json:"data"`
+	Type string       `json:"type"`
+	Data NMOSNodeData `json:"data"`
 }
 
 type NMOSTags struct {
@@ -92,7 +92,7 @@ type NMOSAttachedNetworkDevice struct {
 	PortId    string `json:"port_id"`
 }
 
-func MakeTransmission(n NMOSNode) interface{} {
+func MakeTransmission(n NMOSNodeData) interface{} {
 	return struct {
 		Type string      `json:"type"`
 		Data interface{} `json:"data"`
