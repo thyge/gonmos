@@ -1,4 +1,4 @@
-package main
+package nmos
 
 type QuerySubscription struct {
 	MaxUpdateRateMs int           `json:"max_update_rate_ms"`
