@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/grandcat/zeroconf"
@@ -20,6 +23,7 @@ type NMOSNode struct {
 	CancelHeartBeat         context.CancelFunc
 	CancelRegistryDiscovery context.CancelFunc
 	Ctx                     context.Context
+	WSApi                   nmos.NMOSWebServer
 }
 
 func (a *NMOSNode) ProcessEntries(results <-chan *zeroconf.ServiceEntry) {
@@ -82,8 +86,26 @@ func RegisterHeartBeat(ctx context.Context, uri string) {
 func (a *NMOSNode) Start(ctx context.Context) {
 	a.Ctx, a.CancelHeartBeat = context.WithCancel(ctx)
 	a.Node.Init()
+	// start api and mdns
+	a.WSApi.Start(8889)
+	a.WSApi.InitNode()
+	// brows for registry
 	a.StartRegistryDiscovery()
+	// await external cancel, then cleanup
 	<-ctx.Done()
+	a.WSApi.Stop()
 	a.CancelHeartBeat()
 	a.CancelRegistryDiscovery()
+}
+
+func GracefulShutdown() {
+	s := make(chan os.Signal, 1)
+	signal.Notify(s, os.Interrupt)
+	signal.Notify(s, syscall.SIGTERM)
+	go func() {
+		<-s
+		fmt.Println("Sutting down gracefully.")
+		// clean up here
+		os.Exit(0)
+	}()
 }

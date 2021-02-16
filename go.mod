@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	github.com/google/uuid v1.2.0
+	github.com/gorilla/mux v1.8.0
 	github.com/grandcat/zeroconf v1.0.0
 	github.com/miekg/dns v1.1.38 // indirect
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad // indirect

@@ -11,4 +11,8 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	app.Start(ctx)
+
+	go node.GracefulShutdown()
+	forever := make(chan int)
+	<-forever
 }
