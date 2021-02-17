@@ -2,6 +2,7 @@ package nmos
 
 import (
 	"fmt"
+	"net"
 	"os"
 
 	"github.com/google/uuid"
@@ -22,19 +23,47 @@ type NMOSNodeData struct {
 	Interfaces  []NMOSInterface  `json:"interfaces"`
 }
 
+func GetPreferredNetworkAdapters() []net.IP {
+	ifaces, _ := net.Interfaces()
+	var retFaces []net.IP
+	// handle err
+	for _, i := range ifaces {
+		addrs, _ := i.Addrs()
+		// handle err
+		for _, addr := range addrs {
+			// process IP address
+			// up|broadcast|multicast
+			if i.Flags != net.FlagBroadcast|net.FlagUp|net.FlagMulticast {
+				continue
+			}
+			ipv4Addr := addr.(*net.IPNet).IP.To4()
+			if ipv4Addr == nil {
+				continue
+			}
+			retFaces = append(retFaces, ipv4Addr)
+			// fmt.Println(i, addr)
+		}
+	}
+	return retFaces
+}
+
 func (n *NMOSNodeData) Init() {
+	myIPAddresses := GetPreferredNetworkAdapters()
 	hosnam, _ := os.Hostname()
 	n.Description = fmt.Sprintf("%s-node", hosnam)
 	n.Version = "1441973902:879053935"
 	n.Hostname = hosnam
 	n.Label = hosnam
 	n.Id = uuid.New()
-	n.Href = "http://192.168.170.247:8080/"
-	n.API.Endpoints = append(n.API.Endpoints, NMOSEndpoint{
-		Host:     "192.168.170.247",
-		Port:     8080,
-		Protocol: "http",
-	})
+
+	n.Href = fmt.Sprintf("http://%s:8080", myIPAddresses[0])
+	for _, ip := range myIPAddresses {
+		n.API.Endpoints = append(n.API.Endpoints, NMOSEndpoint{
+			Host:     ip.String(),
+			Port:     8080,
+			Protocol: "http",
+		})
+	}
 	n.API.Versions = append(n.API.Versions, "v1.3")
 	n.Services = make([]NMOSService, 0)
 	n.Clocks = make([]NMOSClocks, 0)
