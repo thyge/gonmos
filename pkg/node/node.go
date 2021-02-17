@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -63,9 +64,16 @@ func (a *NMOSNode) AddNodeToReg(reg zeroconf.ServiceEntry) {
 	resp, _ := http.Post(regUri, "application/json", payloadBuf)
 	if resp.StatusCode == 201 {
 		fmt.Println("Registring with registry: ", regUri)
+	} else {
+		body, _ := ioutil.ReadAll(resp.Body)
+		var prettyJSON bytes.Buffer
+		error := json.Indent(&prettyJSON, body, "", "\t")
+		if error != nil {
+			log.Fatal("JSON parse error: ", error)
+		}
+		log.Fatal(resp, string(prettyJSON.Bytes()))
 	}
-	// body, _ := ioutil.ReadAll(resp.Body)
-	// fmt.Println(string(body))
+
 	go RegisterHeartBeat(a.Ctx, a.RegisterHBURI)
 }
 

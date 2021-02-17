@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 
 	"github.com/google/uuid"
 )
@@ -23,9 +24,9 @@ type NMOSNodeData struct {
 	Interfaces  []NMOSInterface  `json:"interfaces"`
 }
 
-func GetPreferredNetworkAdapters() []net.IP {
+func GetPreferredNetworkAdapters() []net.Interface {
 	ifaces, _ := net.Interfaces()
-	var retFaces []net.IP
+	var retFaces []net.Interface
 	// handle err
 	for _, i := range ifaces {
 		addrs, _ := i.Addrs()
@@ -40,7 +41,7 @@ func GetPreferredNetworkAdapters() []net.IP {
 			if ipv4Addr == nil {
 				continue
 			}
-			retFaces = append(retFaces, ipv4Addr)
+			retFaces = append(retFaces, i)
 			// fmt.Println(i, addr)
 		}
 	}
@@ -48,6 +49,8 @@ func GetPreferredNetworkAdapters() []net.IP {
 }
 
 func (n *NMOSNodeData) Init() {
+	port := 8080
+
 	myIPAddresses := GetPreferredNetworkAdapters()
 	hosnam, _ := os.Hostname()
 	n.Description = fmt.Sprintf("%s-node", hosnam)
@@ -56,18 +59,31 @@ func (n *NMOSNodeData) Init() {
 	n.Label = hosnam
 	n.Id = uuid.New()
 
-	n.Href = fmt.Sprintf("http://%s:8080", myIPAddresses[0])
-	for _, ip := range myIPAddresses {
-		n.API.Endpoints = append(n.API.Endpoints, NMOSEndpoint{
-			Host:     ip.String(),
-			Port:     8080,
-			Protocol: "http",
+	for _, intf := range myIPAddresses {
+		addr, _ := intf.Addrs()
+		for _, add := range addr {
+			if add.(*net.IPNet).IP.To4() != nil {
+				if n.Href == "" {
+					n.Href = fmt.Sprintf("http://%s:%d", add.(*net.IPNet).IP.To4().String(), port)
+				}
+				n.API.Endpoints = append(n.API.Endpoints, NMOSEndpoint{
+					Host:     add.(*net.IPNet).IP.To4().String(),
+					Port:     8080,
+					Protocol: "http",
+				})
+			}
+		}
+		localMac := strings.Replace(intf.HardwareAddr.String(), ":", "-", -1)
+		n.Interfaces = append(n.Interfaces, NMOSInterface{
+			Name:      intf.Name,
+			ChassisId: nil,
+			PortId:    localMac,
 		})
 	}
 	n.API.Versions = append(n.API.Versions, "v1.3")
 	n.Services = make([]NMOSService, 0)
 	n.Clocks = make([]NMOSClocks, 0)
-	n.Interfaces = make([]NMOSInterface, 0)
+	// n.Interfaces = make([]NMOSInterface, 0)
 }
 
 type NMOSTypeHolder struct {
@@ -108,11 +124,12 @@ type NMOSClocks struct {
 
 type NMOSInterface struct {
 	// NIC NAME
-	Name      string `json:"name"`
-	ChassisId string `json:"chassis_id"`
+	Name      string   `json:"name"`
+	ChassisId []string `json:"chassis_id"`
 	// MAC ADDRESS
-	PortId       string                    `json:"port_id"`
-	AttNetDevice NMOSAttachedNetworkDevice `json:"attached_network_device"`
+	PortId string `json:"port_id"`
+	// Private for now
+	attNetDevice NMOSAttachedNetworkDevice `json:"attached_network_device"`
 }
 
 type NMOSAttachedNetworkDevice struct {
