@@ -107,6 +107,7 @@ func (n *NMOSWebServer) Start(port int) {
 }
 
 func (n *NMOSWebServer) Stop() {
+	log.Println("shutting down mdns")
 	if n.MDNSNode != nil {
 		n.MDNSNode.Shutdown()
 	}
@@ -127,7 +128,7 @@ func (n *NMOSWebServer) Stop() {
 	// Optionally, you could run srv.Shutdown in a goroutine and block on
 	// <-ctx.Done() if your application should wait for other services
 	// to finalize based on context cancellation.
-	log.Println("shutting down nmos web server")
+
 	n.srv.Close()
 }
 

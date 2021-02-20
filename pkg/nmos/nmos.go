@@ -48,15 +48,15 @@ func GetPreferredNetworkAdapters() []net.Interface {
 	return retFaces
 }
 
-func (n *NMOSNodeData) Init() {
-	port := 8080
+func (n *NMOSNodeData) Init(port int) {
 
 	myIPAddresses := GetPreferredNetworkAdapters()
-	hosnam, _ := os.Hostname()
-	n.Description = fmt.Sprintf("%s-node", hosnam)
+	hostName, _ := os.Hostname()
+	hostName = strings.Replace(hostName, ".local", "", -1)
+	n.Description = fmt.Sprintf("%s-node", hostName)
 	n.Version = "1441973902:879053935"
-	n.Hostname = hosnam
-	n.Label = hosnam
+	n.Hostname = hostName
+	n.Label = hostName
 	n.Id = uuid.New()
 
 	for _, intf := range myIPAddresses {
@@ -68,7 +68,7 @@ func (n *NMOSNodeData) Init() {
 				}
 				n.API.Endpoints = append(n.API.Endpoints, NMOSEndpoint{
 					Host:     add.(*net.IPNet).IP.To4().String(),
-					Port:     8080,
+					Port:     port,
 					Protocol: "http",
 				})
 			}
