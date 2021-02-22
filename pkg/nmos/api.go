@@ -55,7 +55,9 @@ func handleQueryAPI(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("%s", body)
 }
 
-func handleNodeAPI(w http.ResponseWriter, r *http.Request) {
+func (n *NMOSWebServer) handleNodeAPI(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
 	vars := mux.Vars(r)
 	version := vars["version"]
 	rpath := vars["resourcePath"]
@@ -67,8 +69,10 @@ func handleNodeAPI(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode([]string{"devices/", "flows/", "receivers/", "self/", "senders/", "sources/"})
 	}
 	if rpath == "self" {
-		// json.NewEncoder(w).Encode()
-		fmt.Println("todo, how to handle node")
+		enc := json.NewEncoder(w)
+		enc.SetIndent("", "    ")
+		enc.Encode(n.Node)
+		// fmt.Println(n.Node)
 	}
 	fmt.Println(version, rpath)
 }
@@ -80,6 +84,7 @@ func handleRegHealth(w http.ResponseWriter, r *http.Request) {
 type NMOSWebServer struct {
 	Router           *mux.Router
 	Port             int
+	Node             *NMOSNodeData
 	srv              *http.Server
 	MDNSNode         *zeroconf.Server
 	MDNSQuery        *zeroconf.Server
@@ -132,7 +137,8 @@ func (n *NMOSWebServer) Stop() {
 	n.srv.Close()
 }
 
-func (n *NMOSWebServer) InitNode() {
+func (n *NMOSWebServer) InitNode(nodeptr *NMOSNodeData) {
+	n.Node = nodeptr
 	// MDNS
 	hostName, _ := os.Hostname()
 	hostName = strings.Replace(hostName, ".local", "", -1)
@@ -145,9 +151,9 @@ func (n *NMOSWebServer) InitNode() {
 	// NODE API
 	n.Router.HandleFunc("/x-nmos", handleNMOSBase)
 	nodeSubRouter := n.Router.PathPrefix("/x-nmos/node").Subrouter()
-	nodeSubRouter.HandleFunc("", handleNodeAPI)
-	nodeSubRouter.HandleFunc("/{version}", handleNodeAPI)
-	nodeSubRouter.HandleFunc("/{version}/{resourcePath}", handleNodeAPI)
+	nodeSubRouter.HandleFunc("", n.handleNodeAPI)
+	nodeSubRouter.HandleFunc("/{version}", n.handleNodeAPI)
+	nodeSubRouter.HandleFunc("/{version}/{resourcePath}", n.handleNodeAPI)
 }
 
 func (n *NMOSWebServer) InitQuery() {

@@ -138,13 +138,13 @@ type NMOSAttachedNetworkDevice struct {
 	PortId    string `json:"port_id"`
 }
 
-func MakeTransmission(n NMOSNodeData) interface{} {
+func MakeTransmission(d interface{}, name string) interface{} {
 	return struct {
 		Type string      `json:"type"`
 		Data interface{} `json:"data"`
 	}{
-		Type: "node",
-		Data: n,
+		Type: name,
+		Data: d,
 	}
 }
 
@@ -153,7 +153,7 @@ type NMOSSubscription struct {
 	active      bool
 }
 
-type NMOSSender struct {
+type NMOSReceivers struct {
 	description        string
 	label              string
 	version            string
@@ -168,14 +168,38 @@ type NMOSSender struct {
 	subscription       NMOSSubscription
 }
 
-func (n *NMOSSender) Init() {
-	n.description = "Test Card"
-	n.label = "Test Card"
-	n.version = "1441704616:890020555"
-	n.manifest_href = "http://172.29.80.65/x-manufacturer/senders/d7aa5a30-681d-4e72-92fb-f0ba0f6f4c3e/stream.sdp"
-	n.flow_id, _ = uuid.Parse("5fbec3b1-1b0f-417d-9059-8b94a47197ed")
-	n.id, _ = uuid.Parse("d7aa5a30-681d-4e72-92fb-f0ba0f6f4c3e")
-	n.transport = "urn:x-nmos:transport:rtp.mcast"
-	n.device_id, _ = uuid.Parse("9126cc2f-4c26-4c9b-a6cd-93c4381c9be5")
-	n.interface_bindings = append(n.interface_bindings, "eth0")
+type NMOSSender struct {
+	Id                 uuid.UUID        `json:"id"`
+	Version            string           `json:"version"`
+	Description        string           `json:"description"`
+	Label              string           `json:"label"`
+	Tags               NMOSTags         `json:"tags"`
+	Manifest_href      string           `json:"manifest_href"`
+	Flow_id            uuid.UUID        `json:"flow_id"`
+	Transport          string           `json:"transport"`
+	Device_id          uuid.UUID        `json:"device_id"`
+	Caps               NMOSCapabilities `json:"caps"`
+	interface_bindings []string         `json:"interface_bindings"`
+}
+
+type NMOSControl struct {
+	Type string `json:"type"`
+	Href string `json:"href"`
+}
+
+type NMOSDevice struct {
+	Id          uuid.UUID       `json:"id"`
+	Version     string          `json:"version"`
+	Description string          `json:"description"`
+	Label       string          `json:"label"`
+	Tags        NMOSTags        `json:"tags"`
+	Type        string          `json:"type"`
+	Node_id     uuid.UUID       `json:"node_id"`
+	Senders     []NMOSSender    `json:"senders"`
+	Receivers   []NMOSReceivers `json:"receivers"`
+	Controls    []NMOSControl   `json:"controls"`
+}
+
+func (d *NMOSDevice) String() {
+	fmt.Println()
 }
