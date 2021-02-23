@@ -25,17 +25,6 @@ type NMOSNodeData struct {
 	Interfaces  []NMOSInterface  `json:"interfaces"`
 }
 
-func (n NMOSNodeData) MarshalJSON() ([]byte, error) {
-	// Init fields that can not be empty
-	if n.Services == nil {
-		n.Services = make([]NMOSService, 0)
-	}
-	if n.Clocks == nil {
-		n.Clocks = make([]NMOSClocks, 0)
-	}
-	return json.Marshal(n)
-}
-
 func GetPreferredNetworkAdapters() []net.Interface {
 	ifaces, _ := net.Interfaces()
 	var retFaces []net.Interface
@@ -93,6 +82,8 @@ func (n *NMOSNodeData) Init(port int) {
 		})
 	}
 	n.API.Versions = append(n.API.Versions, "v1.3")
+	n.Services = make([]NMOSService, 0)
+	n.Clocks = make([]NMOSClocks, 0)
 }
 
 type NMOSTypeHolder struct {
@@ -158,8 +149,8 @@ func MakeTransmission(d interface{}, name string) interface{} {
 }
 
 type NMOSSubscription struct {
-	receiver_id uuid.UUID
-	active      bool
+	Receiver_id uuid.UUID `json:"receiver_id"`
+	Active      bool      `json:"active"`
 }
 
 type NMOSReceiver struct {
@@ -186,7 +177,8 @@ type NMOSSender struct {
 	Transport          string           `json:"transport"`
 	Device_id          uuid.UUID        `json:"device_id"`
 	caps               NMOSCapabilities `json:"caps"`
-	interface_bindings []string         `json:"interface_bindings"`
+	Interface_bindings []string         `json:"interface_bindings"`
+	Subscription       NMOSSubscription `json:"subscription"`
 }
 
 type NMOSControl struct {
@@ -206,22 +198,10 @@ type NMOSDevice struct {
 	Receivers   []NMOSReceiver `json:"receivers"`
 	Controls    []NMOSControl  `json:"controls"`
 }
-type nMOSDevice struct {
-	Id          uuid.UUID     `json:"id"`
-	Version     string        `json:"version"`
-	Description string        `json:"description"`
-	Label       string        `json:"label"`
-	Tags        NMOSTags      `json:"tags"`
-	Type        string        `json:"type"`
-	Node_id     uuid.UUID     `json:"node_id"`
-	Senders     []uuid.UUID   `json:"senders"`
-	Receivers   []uuid.UUID   `json:"receivers"`
-	Controls    []NMOSControl `json:"controls"`
-}
 
 func (d NMOSDevice) MarshalJSON() ([]byte, error) {
 	// stdMarshal, err :=
-	nd := new(nMOSDevice)
+	nd := new(pNMOSDevice)
 	nd.Id = d.Id
 	nd.Version = d.Version
 	nd.Description = d.Description
@@ -240,4 +220,17 @@ func (d NMOSDevice) MarshalJSON() ([]byte, error) {
 	}
 	nd.Controls = d.Controls
 	return json.Marshal(nd)
+}
+
+type pNMOSDevice struct {
+	Id          uuid.UUID     `json:"id"`
+	Version     string        `json:"version"`
+	Description string        `json:"description"`
+	Label       string        `json:"label"`
+	Tags        NMOSTags      `json:"tags"`
+	Type        string        `json:"type"`
+	Node_id     uuid.UUID     `json:"node_id"`
+	Senders     []uuid.UUID   `json:"senders"`
+	Receivers   []uuid.UUID   `json:"receivers"`
+	Controls    []NMOSControl `json:"controls"`
 }
