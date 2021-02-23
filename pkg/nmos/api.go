@@ -70,9 +70,8 @@ func (n *NMOSWebServer) handleNodeAPI(w http.ResponseWriter, r *http.Request) {
 	}
 	if rpath == "self" {
 		enc := json.NewEncoder(w)
-		enc.SetIndent("", "    ")
+		enc.SetIndent("", "\t")
 		enc.Encode(n.Node)
-		// fmt.Println(n.Node)
 	}
 	fmt.Println(version, rpath)
 }
