@@ -25,6 +25,17 @@ type NMOSNodeData struct {
 	Interfaces  []NMOSInterface  `json:"interfaces"`
 }
 
+func (n NMOSNodeData) MarshalJSON() ([]byte, error) {
+	// Init fields that can not be empty
+	if n.Services == nil {
+		n.Services = make([]NMOSService, 0)
+	}
+	if n.Clocks == nil {
+		n.Clocks = make([]NMOSClocks, 0)
+	}
+	return json.Marshal(n)
+}
+
 func GetPreferredNetworkAdapters() []net.Interface {
 	ifaces, _ := net.Interfaces()
 	var retFaces []net.Interface
@@ -82,9 +93,6 @@ func (n *NMOSNodeData) Init(port int) {
 		})
 	}
 	n.API.Versions = append(n.API.Versions, "v1.3")
-	n.Services = make([]NMOSService, 0)
-	n.Clocks = make([]NMOSClocks, 0)
-	// n.Interfaces = make([]NMOSInterface, 0)
 }
 
 type NMOSTypeHolder struct {
