@@ -20,7 +20,7 @@ type NMOSNode struct {
 	Node                    nmos.NMOSNodeData
 	Device                  nmos.NMOSDevice
 	Senders                 []nmos.NMOSSender
-	Receivers               []nmos.NMOSReceivers
+	Receivers               []nmos.NMOSReceiver
 	RegistryURI             string
 	RegisterHBURI           string
 	DeleteURI               string
@@ -30,21 +30,22 @@ type NMOSNode struct {
 	WSApi                   nmos.NMOSWebServer
 }
 
-func (a *NMOSNode) ProcessEntries(results <-chan *zeroconf.ServiceEntry) {
+func (a *NMOSNode) ProcessEntries(results <-chan *zeroconf.ServiceEntry, regFoundChan chan string) {
 	for entry := range results {
 		a.Registers = append(a.Registers, *entry)
 		fmt.Println("Found registry service:", entry.AddrIPv4, entry.Domain, entry.Port, entry.Text)
 		a.AddNodeToReg(*entry)
+		regFoundChan <- "found reg"
 	}
 }
 
-func (a *NMOSNode) StartRegistryDiscovery() {
+func (a *NMOSNode) StartRegistryDiscovery(regFound chan string) {
 	resolver, err := zeroconf.NewResolver(nil)
 	if err != nil {
 		log.Fatalln("Failed to initialize resolver:", err.Error())
 	}
 	entries := make(chan *zeroconf.ServiceEntry)
-	go a.ProcessEntries(entries)
+	go a.ProcessEntries(entries, regFoundChan)
 
 	var ctx context.Context
 	ctx, a.CancelRegistryDiscovery = context.WithCancel(a.Ctx)
@@ -80,7 +81,6 @@ func (a *NMOSNode) AddNodeToReg(reg zeroconf.ServiceEntry) {
 
 	go RegisterHeartBeat(a.Ctx, a.RegisterHBURI)
 
-	a.SendSenders()
 }
 
 func (a *NMOSNode) RemoveFromRegistry() {
@@ -117,11 +117,35 @@ func RegisterHeartBeat(ctx context.Context, uri string) {
 	}
 }
 
-func (a *NMOSNode) InitTestSendersAndRecievers() {
+func (a *NMOSNode) SendResource(i interface{}, name string) {
+	wrapped := nmos.MakeTransmission(i, name)
+	payloadBuf := new(bytes.Buffer)
+	enc := json.NewEncoder(payloadBuf)
+	enc.SetIndent("", "    ")
+	enc.Encode(wrapped)
 
+	fmt.Println(payloadBuf)
+	if a.RegistryURI == "" {
+		time.Sleep(time.Second * 2)
+	}
+	resp, err := http.Post(a.RegistryURI, "application/json", payloadBuf)
+	if err != nil {
+		panic(err)
+	}
+	if resp.StatusCode == 201 {
+		log.Println("Sent:", name)
+	} else {
+		body, _ := ioutil.ReadAll(resp.Body)
+		var prettyJSON bytes.Buffer
+		error := json.Indent(&prettyJSON, body, "", "\t")
+		if error != nil {
+			log.Fatal("JSON parse error: ", error)
+		}
+		log.Fatal(resp, string(prettyJSON.Bytes()))
+	}
 }
 
-func (a *NMOSNode) SendDevice() {
+func (a *NMOSNode) InitTestSendersAndRecievers() {
 	a.Device = nmos.NMOSDevice{
 		Id:          uuid.New(),
 		Version:     "1441704616:890020555",
@@ -131,7 +155,7 @@ func (a *NMOSNode) SendDevice() {
 		Tags:        nmos.NMOSTags{},
 	}
 	a.Device.Senders = make([]nmos.NMOSSender, 0)
-	a.Device.Receivers = make([]nmos.NMOSReceivers, 0)
+	a.Device.Receivers = make([]nmos.NMOSReceiver, 0)
 	a.Device.Controls = append(a.Device.Controls, nmos.NMOSControl{
 		Type: "urn:x-manufacturer:control:generic",
 		Href: "wss://154.67.63.2:4535",
@@ -148,72 +172,28 @@ func (a *NMOSNode) SendDevice() {
 		Transport:     "urn:x-nmos:transport:rtp.mcast",
 		Device_id:     a.Device.Id,
 	})
-
-	wrapped := nmos.MakeTransmission(a.Device, "device")
-	payloadBuf := new(bytes.Buffer)
-	enc := json.NewEncoder(payloadBuf)
-	enc.SetIndent("", "    ")
-	enc.Encode(wrapped)
-
-	fmt.Println(payloadBuf)
-	if a.RegistryURI == "" {
-		time.Sleep(time.Second * 2)
+	a.SendResource(a.Device, "device")
+	for _, sender := range a.Device.Senders {
+		a.SendResource(sender, "sender")
 	}
-	resp, err := http.Post(a.RegistryURI, "application/json", payloadBuf)
-	if err != nil {
-		panic(err)
-	}
-	if resp.StatusCode == 201 {
-		log.Println("Sending Sender to:", a.RegistryURI)
-	} else {
-		body, _ := ioutil.ReadAll(resp.Body)
-		var prettyJSON bytes.Buffer
-		error := json.Indent(&prettyJSON, body, "", "\t")
-		if error != nil {
-			log.Fatal("JSON parse error: ", error)
-		}
-		log.Fatal(resp, string(prettyJSON.Bytes()))
-	}
-}
-
-func (a *NMOSNode) SendSenders() {
-	for _, sender := range a.Senders {
-		wrapped := nmos.MakeTransmission(sender, "sender")
-		payloadBuf := new(bytes.Buffer)
-		enc := json.NewEncoder(payloadBuf)
-		enc.SetIndent("", "    ")
-		enc.Encode(wrapped)
-
-		fmt.Println(payloadBuf)
-		resp, _ := http.Post(a.RegistryURI, "application/json", payloadBuf)
-		if resp.StatusCode == 201 {
-			log.Println("Sending Sender to:", a.RegistryURI)
-		} else {
-			body, _ := ioutil.ReadAll(resp.Body)
-			var prettyJSON bytes.Buffer
-			error := json.Indent(&prettyJSON, body, "", "\t")
-			if error != nil {
-				log.Fatal("JSON parse error: ", error)
-			}
-			log.Fatal(resp, string(prettyJSON.Bytes()))
-		}
+	for _, receiver := range a.Device.Receivers {
+		a.SendResource(receiver, "receiver")
 	}
 }
 
 func (a *NMOSNode) Start(ctx context.Context, port int) {
 	a.Ctx, a.CancelHeartBeat = context.WithCancel(ctx)
 	a.Node.Init(port)
-	// add senders
-
-	// a.InitTestSendersAndRecievers()
 	// start api and mdns
 	a.WSApi.Start(port)
 	a.WSApi.InitNode(&a.Node)
 	// brows for registry
-	a.StartRegistryDiscovery()
-	// await external cancel, then cleanup
-	a.SendDevice()
+	regFoundChan := make(chan string)
+	a.StartRegistryDiscovery(regFoundChan)
+	// await registry to be discovered
+	<-regFoundChan
 	a.InitTestSendersAndRecievers()
+	// await external cancel, then cleanup
 	<-ctx.Done()
 	// cleanup
 	a.RemoveFromRegistry()

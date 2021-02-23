@@ -1,6 +1,7 @@
 package nmos
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"os"
@@ -153,19 +154,17 @@ type NMOSSubscription struct {
 	active      bool
 }
 
-type NMOSReceivers struct {
+type NMOSReceiver struct {
 	description        string
 	label              string
 	version            string
 	manifest_href      string
 	flow_id            uuid.UUID
-	id                 uuid.UUID
+	Id                 uuid.UUID
 	transport          string
 	device_id          uuid.UUID
 	interface_bindings []string
-	caps               NMOSCapabilities
 	tags               NMOSTags
-	subscription       NMOSSubscription
 }
 
 type NMOSSender struct {
@@ -178,7 +177,7 @@ type NMOSSender struct {
 	Flow_id            uuid.UUID        `json:"flow_id"`
 	Transport          string           `json:"transport"`
 	Device_id          uuid.UUID        `json:"device_id"`
-	Caps               NMOSCapabilities `json:"caps"`
+	caps               NMOSCapabilities `json:"caps"`
 	interface_bindings []string         `json:"interface_bindings"`
 }
 
@@ -188,18 +187,49 @@ type NMOSControl struct {
 }
 
 type NMOSDevice struct {
-	Id          uuid.UUID       `json:"id"`
-	Version     string          `json:"version"`
-	Description string          `json:"description"`
-	Label       string          `json:"label"`
-	Tags        NMOSTags        `json:"tags"`
-	Type        string          `json:"type"`
-	Node_id     uuid.UUID       `json:"node_id"`
-	Senders     []NMOSSender    `json:"senders"`
-	Receivers   []NMOSReceivers `json:"receivers"`
-	Controls    []NMOSControl   `json:"controls"`
+	Id          uuid.UUID      `json:"id"`
+	Version     string         `json:"version"`
+	Description string         `json:"description"`
+	Label       string         `json:"label"`
+	Tags        NMOSTags       `json:"tags"`
+	Type        string         `json:"type"`
+	Node_id     uuid.UUID      `json:"node_id"`
+	Senders     []NMOSSender   `json:"senders"`
+	Receivers   []NMOSReceiver `json:"receivers"`
+	Controls    []NMOSControl  `json:"controls"`
+}
+type nMOSDevice struct {
+	Id          uuid.UUID     `json:"id"`
+	Version     string        `json:"version"`
+	Description string        `json:"description"`
+	Label       string        `json:"label"`
+	Tags        NMOSTags      `json:"tags"`
+	Type        string        `json:"type"`
+	Node_id     uuid.UUID     `json:"node_id"`
+	Senders     []uuid.UUID   `json:"senders"`
+	Receivers   []uuid.UUID   `json:"receivers"`
+	Controls    []NMOSControl `json:"controls"`
 }
 
-func (d *NMOSDevice) String() {
-	fmt.Println()
+func (d NMOSDevice) MarshalJSON() ([]byte, error) {
+	// stdMarshal, err :=
+	nd := new(nMOSDevice)
+	nd.Id = d.Id
+	nd.Version = d.Version
+	nd.Description = d.Description
+	nd.Label = d.Label
+	nd.Tags = d.Tags
+	nd.Type = d.Type
+	nd.Node_id = d.Node_id
+	// Replace sender with uuid array
+	nd.Senders = make([]uuid.UUID, 0)
+	for _, s := range d.Senders {
+		nd.Senders = append(nd.Senders, s.Id)
+	}
+	nd.Receivers = make([]uuid.UUID, 0)
+	for _, r := range d.Receivers {
+		nd.Receivers = append(nd.Receivers, r.Id)
+	}
+	nd.Controls = d.Controls
+	return json.Marshal(nd)
 }
