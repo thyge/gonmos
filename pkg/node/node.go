@@ -134,13 +134,7 @@ func (a *NMOSNode) SendResource(i interface{}, name string) {
 	enc := json.NewEncoder(payloadBuf)
 	enc.SetIndent("", "\t")
 	enc.Encode(wrapped)
-	// w := new(bytes.Buffer)
-	// json.NewEncoder(w).Encode(i.(nmos.NMOSNodeData))
-	// fmt.Println(w)
 
-	if a.RegistryURI == "" {
-		time.Sleep(time.Second * 2)
-	}
 	resp, err := http.Post(a.RegistryURI, "application/json", payloadBuf)
 	if err != nil {
 		panic(err)
@@ -211,7 +205,7 @@ func (a *NMOSNode) Start(ctx context.Context, port int) {
 	a.StartRegistryDiscovery(regFoundChan)
 	// await registry to be discovered
 	<-regFoundChan
-	// a.InitTestSendersAndRecievers()
+	a.InitTestSendersAndRecievers()
 	// await external cancel, then cleanup
 	<-ctx.Done()
 	// cleanup
