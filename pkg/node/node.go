@@ -71,7 +71,8 @@ func (a *NMOSNode) RemoveFromRegistry() {
 	req, _ := http.NewRequest(http.MethodDelete, a.DeleteURI, nil)
 	resp, err := client.Do(req)
 	if err != nil {
-		panic(err)
+		log.Println(err)
+		return
 	}
 	if resp.StatusCode == 204 {
 		log.Println("Deleted resource from registry")
@@ -82,7 +83,7 @@ func (a *NMOSNode) RemoveFromRegistry() {
 		if error != nil {
 			log.Fatal("JSON parse error: ", error)
 		}
-		log.Fatal(resp, string(prettyJSON.Bytes()))
+		log.Println(resp, string(prettyJSON.Bytes()))
 	}
 }
 
@@ -103,12 +104,11 @@ func RegisterHeartBeat(ctx context.Context, uri string) {
 			req.Close = true
 			resp, err := hbclient.Do(req)
 			if err != nil {
-				panic(err)
+				log.Println("error", err)
+				return
 			}
 			connectioCounter++
-			if resp.StatusCode == 200 {
-				log.Println("Heartbeat accepted, count:", connectioCounter)
-			} else {
+			if resp.StatusCode != 200 {
 				body, err := ioutil.ReadAll(resp.Body)
 				if err != nil {
 					panic(err)
@@ -205,7 +205,7 @@ func (a *NMOSNode) Start(ctx context.Context, port int) {
 	a.StartRegistryDiscovery(regFoundChan)
 	// await registry to be discovered
 	<-regFoundChan
-	a.InitTestSendersAndRecievers()
+	// a.InitTestSendersAndRecievers()
 	// await external cancel, then cleanup
 	<-ctx.Done()
 	// cleanup
