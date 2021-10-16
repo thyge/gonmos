@@ -1,8 +1,11 @@
 package main
 
 import (
+	"log"
+	"os"
+	"os/signal"
+
 	"github.com/thyge/gonmos/pkg/nmos"
-	"github.com/thyge/gonmos/pkg/node"
 )
 
 func main() {
@@ -11,7 +14,14 @@ func main() {
 	nmosws.InitRegister()
 	defer nmosws.Stop()
 
-	go node.GracefulShutdown()
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		oscall := <-c
+		log.Printf("system call:%+v", oscall)
+		nmosws.Stop()
+	}()
+
 	forever := make(chan int)
 	<-forever
 }
