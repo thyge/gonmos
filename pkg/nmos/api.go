@@ -157,8 +157,9 @@ func (n *NMOSWebServer) InitNode(nodeptr *NMOSNodeData) {
 
 func (n *NMOSWebServer) InitQuery() {
 	// MDNS
-	hostName, _ := os.Hostname()
-	hostName = strings.Replace(hostName, ".local", "", -1)
+	hostNameDomain, _ := os.Hostname()
+	splitHostName := strings.Split(hostNameDomain, ".")
+	hostName := splitHostName[0]
 	txt := MdnsText(99, []string{"v1.0", "v1.1", "v1.2", "v1.3"}, "http", false)
 	var err error
 	n.MDNSQuery, err = zeroconf.Register(hostName, "_nmos-query._tcp", "local", n.Port, txt, nil)
@@ -174,15 +175,16 @@ func (n *NMOSWebServer) InitQuery() {
 
 func (n *NMOSWebServer) InitRegister() {
 	// MDNS
-	hostName, _ := os.Hostname()
-	hostName = strings.Replace(hostName, ".local", "", -1)
+	hostNameDomain, _ := os.Hostname()
+	splitHostName := strings.Split(hostNameDomain, ".")
+	hostName := splitHostName[0]
 	txt := MdnsText(99, []string{"v1.0", "v1.1", "v1.2", "v1.3"}, "http", false)
 	var err error
 	n.MDNSRegistration, err = zeroconf.Register(hostName, "_nmos-registration._tcp", "local", n.Port, txt, nil)
 	if err != nil {
 		panic(err)
 	}
-	n.MDNSRegister, err = zeroconf.Register(hostName, "_nmos-registration._tcp", "local", n.Port, txt, nil)
+	n.MDNSRegister, err = zeroconf.Register(hostName, "_nmos-register._tcp", "local", n.Port, txt, nil)
 	if err != nil {
 		panic(err)
 	}
