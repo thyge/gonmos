@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/grandcat/zeroconf"
 	"github.com/thyge/gonmos/pkg/nmos"
 )
@@ -62,7 +61,19 @@ func (a *NMOSNode) AddNodeToReg(reg zeroconf.ServiceEntry) {
 	a.RegisterHBURI = fmt.Sprintf("http://%s/x-nmos/registration/%s/health/nodes/%s", regAddress, apiVersion, a.Node.Id)
 	a.DeleteURI = fmt.Sprintf("%s/nodes/%s", a.RegistryURI, a.Node.Id)
 
+	// Send resources
 	a.SendResource(a.Node, "node")
+	// Check if Device is initialised
+	if len(a.Device.Label) > 0 {
+		a.SendResource(a.Device, "device")
+		for _, sender := range a.Device.Senders {
+			a.SendResource(sender, "sender")
+		}
+		for _, receiver := range a.Device.Receivers {
+			a.SendResource(receiver, "receiver")
+		}
+	}
+
 	go RegisterHeartBeat(a.Ctx, a.RegisterHBURI)
 }
 
@@ -155,51 +166,23 @@ func (a *NMOSNode) SendResource(i interface{}, name string) {
 	}
 }
 
-func (a *NMOSNode) InitTestSendersAndRecievers() {
-	a.Device = nmos.NMOSDevice{
-		Id:          uuid.New(),
-		Version:     "1441704616:890020555",
-		Description: "test",
-		Label:       "Test",
-		Type:        "urn:x-nmos:device:pipeline",
-		Tags:        nmos.NMOSTags{},
-	}
-	a.Device.Controls = append(a.Device.Controls, nmos.NMOSControl{
-		Type: "urn:x-manufacturer:control:generic",
-		Href: "wss://154.67.63.2:4535",
-	})
-	a.Device.Node_id = a.Node.Id
-	a.Device.Senders = append(a.Senders, nmos.NMOSSender{
-		Id:                 uuid.New(),
-		Version:            "1441704616:890020555",
-		Description:        "Test Card",
-		Label:              "Test Card",
-		Tags:               nmos.NMOSTags{},
-		Manifest_href:      "http://172.29.80.65/x-manufacturer/senders/d7aa5a30-681d-4e72-92fb-f0ba0f6f4c3e/stream.sdp",
-		Flow_id:            uuid.New(),
-		Transport:          "urn:x-nmos:transport:rtp.mcast",
-		Device_id:          a.Device.Id,
-		Interface_bindings: make([]string, 0),
-		Subscription: nmos.NMOSSubscription{
-			Receiver_id: uuid.New(),
-		},
-	})
-	a.Device.Senders[0].Interface_bindings = append(a.Device.Senders[0].Interface_bindings, "eth")
-	a.SendResource(a.Device, "device")
-	for _, sender := range a.Device.Senders {
-		a.SendResource(sender, "sender")
-	}
-	for _, receiver := range a.Device.Receivers {
-		a.SendResource(receiver, "receiver")
-	}
-}
+func (a *NMOSNode) Start(ctx context.Context, port int, config *nmos.NMOSDevice) {
 
-func (a *NMOSNode) Start(ctx context.Context, port int) {
 	a.Ctx, a.CancelHeartBeat = context.WithCancel(ctx)
 	a.Node.Init(port)
 	// start api and mdns
 	a.WSApi.Start(port)
 	a.WSApi.InitNode(&a.Node)
+
+	// Handle config
+	a.Device = *config
+	a.Device.Node_id = a.Node.Id
+	for _, s := range a.Device.Senders {
+		// This should be the actual IP if the IP interface
+		// Since we don't have one we just pick the first local
+		s.InitHREF(a.Node.API.Endpoints[0].Host)
+	}
+
 	// brows for registry
 	regFoundChan := make(chan string)
 	a.StartRegistryDiscovery(regFoundChan)

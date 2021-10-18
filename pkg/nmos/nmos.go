@@ -184,6 +184,10 @@ type NMOSSender struct {
 	Subscription       NMOSSubscription `json:"subscription"`
 }
 
+func (ns *NMOSSender) InitHREF(ip string) {
+	ns.Manifest_href = fmt.Sprintf("http://%s/x-manufacturer/senders/%s/stream.sdp", ip, ns.Id)
+}
+
 type NMOSControl struct {
 	Type string `json:"type"`
 	Href string `json:"href"`
