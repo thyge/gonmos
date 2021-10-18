@@ -18,8 +18,6 @@ type NMOSNode struct {
 	Registers               []zeroconf.ServiceEntry
 	Node                    nmos.NMOSNodeData
 	Device                  nmos.NMOSDevice
-	Senders                 []nmos.NMOSSender
-	Receivers               []nmos.NMOSReceiver
 	RegistryURI             string
 	RegisterHBURI           string
 	DeleteURI               string
@@ -177,10 +175,10 @@ func (a *NMOSNode) Start(ctx context.Context, port int, config *nmos.NMOSDevice)
 	// Handle config
 	a.Device = *config
 	a.Device.Node_id = a.Node.Id
-	for _, s := range a.Device.Senders {
+	for i := 0; i < len(a.Device.Senders); i++ {
 		// This should be the actual IP if the IP interface
 		// Since we don't have one we just pick the first local
-		s.InitHREF(a.Node.API.Endpoints[0].Host)
+		a.Device.Senders[i].InitHREF(a.Node.API.Endpoints[0].Host)
 	}
 
 	// brows for registry

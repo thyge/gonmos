@@ -35,7 +35,7 @@ func main() {
 	}
 	d.Controls = append(d.Controls, nmos.NMOSControl{
 		Type: "urn:x-manufacturer:control:generic",
-		Href: "wss://154.67.63.2:4535",
+		Href: "",
 	})
 
 	d.Senders = append(d.Senders, nmos.NMOSSender{
@@ -44,7 +44,7 @@ func main() {
 		Description:        "Test Card",
 		Label:              "Test Card",
 		Tags:               nmos.NMOSTags{},
-		Manifest_href:      "http://172.29.80.65/x-manufacturer/senders/d7aa5a30-681d-4e72-92fb-f0ba0f6f4c3e/stream.sdp",
+		Manifest_href:      "",
 		Flow_id:            uuid.New(),
 		Transport:          "urn:x-nmos:transport:rtp.mcast",
 		Device_id:          d.Id,
@@ -53,7 +53,6 @@ func main() {
 			Receiver_id: uuid.New(),
 		},
 	})
-	d.Senders[0].Interface_bindings = append(d.Senders[0].Interface_bindings, "eth")
 
 	// Start node
 	port := 8889
