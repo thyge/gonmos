@@ -53,11 +53,11 @@ func (n *NMOSNodeData) Init(port int) {
 
 	myIPAddresses := GetPreferredNetworkAdapters()
 	hostName, _ := os.Hostname()
-	hostName = strings.Replace(hostName, ".local", "", -1)
-	n.Description = fmt.Sprintf("%s-node", hostName)
+	splitHostName := strings.Split(hostName, ".")
+	n.Description = fmt.Sprintf("%s-node", splitHostName[0])
 	n.Version = "1441973902:879053935"
 	n.Hostname = hostName
-	n.Label = hostName
+	n.Label = splitHostName[0]
 	n.Id = uuid.New()
 
 	for _, intf := range myIPAddresses {
@@ -77,10 +77,13 @@ func (n *NMOSNodeData) Init(port int) {
 		localMac := strings.Replace(intf.HardwareAddr.String(), ":", "-", -1)
 		n.Interfaces = append(n.Interfaces, NMOSInterface{
 			Name:      intf.Name,
-			ChassisId: nil,
-			PortId:    localMac,
+			ChassisID: localMac,
+			PortID:    localMac,
 		})
 	}
+	n.API.Versions = append(n.API.Versions, "v1.0")
+	n.API.Versions = append(n.API.Versions, "v1.1")
+	n.API.Versions = append(n.API.Versions, "v1.2")
 	n.API.Versions = append(n.API.Versions, "v1.3")
 	n.Services = make([]NMOSService, 0)
 	n.Clocks = make([]NMOSClocks, 0)
@@ -124,10 +127,10 @@ type NMOSClocks struct {
 
 type NMOSInterface struct {
 	// NIC NAME
-	Name      string   `json:"name"`
-	ChassisId []string `json:"chassis_id"`
+	Name      string `json:"name"`
+	ChassisID string `json:"chassis_id"`
 	// MAC ADDRESS
-	PortId string `json:"port_id"`
+	PortID string `json:"port_id"`
 	// Private for now
 	attNetDevice NMOSAttachedNetworkDevice `json:"attached_network_device"`
 }
