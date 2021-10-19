@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/grandcat/zeroconf"
 )
@@ -37,6 +38,10 @@ func handleRegBase(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode([]string{"resource/", "health/"})
 }
 
+func homeHandler(w http.ResponseWriter, r *http.Request) {
+	log.Println(r.Host, r.URL.Path)
+}
+
 func handleNMOSBase(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode([]string{"node/", "query/", "registration/"})
 }
@@ -53,6 +58,50 @@ func handleQueryAPI(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r)
 	body, _ := ioutil.ReadAll(r.Body)
 	fmt.Printf("%s", body)
+}
+
+func (n *NMOSWebServer) handleConnectionAPI(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	vars := mux.Vars(r)
+	version := vars["version"]
+	mode := vars["mode"]
+	resource := vars["resource"]
+	id := vars["id"]
+	fmt.Println(vars)
+	if version == "" {
+		json.NewEncoder(w).Encode([]string{"v1.0/", "v1.1/", "v1.2/", "v1.3/"})
+		return
+	}
+	if (mode == "bulk") || (mode == "single") {
+		if resource == "" {
+			json.NewEncoder(w).Encode([]string{"senders/", "recievers/"})
+		} else {
+			if id == "" {
+				// Get all uuids
+				var sender_uuids []uuid.UUID
+				for i := 0; i < len(n.Device.Senders); i++ {
+					sender_uuids = append(sender_uuids, n.Device.Senders[0].Device_id)
+				}
+				// Return all senders UUID
+				enc := json.NewEncoder(w)
+				enc.SetIndent("", "\t")
+				enc.Encode(sender_uuids)
+			} else {
+				// Match UUID with uuid in array
+				queryuuid, _ := uuid.Parse(id)
+				for i := 0; i < len(n.Device.Senders); i++ {
+					if queryuuid == n.Device.Senders[i].Device_id {
+						enc := json.NewEncoder(w)
+						enc.SetIndent("", "\t")
+						enc.Encode(n.Device.Senders[i])
+					}
+				}
+			}
+		}
+	} else {
+		json.NewEncoder(w).Encode([]string{"bulk/", "single/"})
+	}
 }
 
 func (n *NMOSWebServer) handleNodeAPI(w http.ResponseWriter, r *http.Request) {
@@ -73,7 +122,7 @@ func (n *NMOSWebServer) handleNodeAPI(w http.ResponseWriter, r *http.Request) {
 		enc.SetIndent("", "\t")
 		enc.Encode(n.Node)
 	}
-	fmt.Println(version, rpath)
+
 }
 
 func handleRegHealth(w http.ResponseWriter, r *http.Request) {
@@ -84,6 +133,7 @@ type NMOSWebServer struct {
 	Router           *mux.Router
 	Port             int
 	Node             *NMOSNodeData
+	Device           *NMOSDevice
 	srv              *http.Server
 	MDNSNode         *zeroconf.Server
 	MDNSQuery        *zeroconf.Server
@@ -136,8 +186,9 @@ func (n *NMOSWebServer) Stop() {
 	n.srv.Close()
 }
 
-func (n *NMOSWebServer) InitNode(nodeptr *NMOSNodeData) {
+func (n *NMOSWebServer) InitNode(nodeptr *NMOSNodeData, deviceptr *NMOSDevice) {
 	n.Node = nodeptr
+	n.Device = deviceptr
 	// MDNS
 	hostName, _ := os.Hostname()
 	hostName = strings.Replace(hostName, ".local", "", -1)
@@ -148,11 +199,20 @@ func (n *NMOSWebServer) InitNode(nodeptr *NMOSNodeData) {
 		panic(err)
 	}
 	// NODE API
+	n.Router.HandleFunc("/", homeHandler)
 	n.Router.HandleFunc("/x-nmos", handleNMOSBase)
+	// IS-04
 	nodeSubRouter := n.Router.PathPrefix("/x-nmos/node").Subrouter()
 	nodeSubRouter.HandleFunc("", n.handleNodeAPI)
 	nodeSubRouter.HandleFunc("/{version}", n.handleNodeAPI)
 	nodeSubRouter.HandleFunc("/{version}/{resourcePath}", n.handleNodeAPI)
+	// IS-05
+	conSubRouter := n.Router.PathPrefix("/x-nmos/connection").Subrouter()
+	conSubRouter.HandleFunc("", n.handleConnectionAPI)
+	conSubRouter.HandleFunc("/{version}", n.handleConnectionAPI)
+	conSubRouter.HandleFunc("/{version}/{mode}", n.handleConnectionAPI)
+	conSubRouter.HandleFunc("/{version}/{mode}/{resource}", n.handleConnectionAPI)
+	conSubRouter.HandleFunc("/{version}/{mode}/{resource}/{id}", n.handleConnectionAPI)
 }
 
 func (n *NMOSWebServer) InitQuery() {

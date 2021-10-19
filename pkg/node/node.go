@@ -170,7 +170,7 @@ func (a *NMOSNode) Start(ctx context.Context, port int, config *nmos.NMOSDevice)
 	a.Node.Init(port)
 	// start api and mdns
 	a.WSApi.Start(port)
-	a.WSApi.InitNode(&a.Node)
+	a.WSApi.InitNode(&a.Node, &a.Device)
 
 	// Handle config
 	a.Device = *config
