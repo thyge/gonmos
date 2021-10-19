@@ -110,19 +110,24 @@ func (n *NMOSWebServer) handleNodeAPI(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	version := vars["version"]
 	rpath := vars["resourcePath"]
+
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "\t")
+
 	if version == "" {
-		json.NewEncoder(w).Encode([]string{"v1.0/", "v1.1/", "v1.2/", "v1.3/"})
+		enc.Encode([]string{"v1.0/", "v1.1/", "v1.2/", "v1.3/"})
 		return
 	}
-	if rpath == "" {
-		json.NewEncoder(w).Encode([]string{"devices/", "flows/", "receivers/", "self/", "senders/", "sources/"})
-	}
-	if rpath == "self" {
-		enc := json.NewEncoder(w)
-		enc.SetIndent("", "\t")
+	switch rpath {
+	case "self":
 		enc.Encode(n.Node)
+	case "devices":
+		enc.Encode(n.Device)
+	case "senders":
+		enc.Encode(n.Device.Senders)
+	default:
+		enc.Encode([]string{"devices/", "flows/", "receivers/", "self/", "senders/", "sources/"})
 	}
-
 }
 
 func handleRegHealth(w http.ResponseWriter, r *http.Request) {
