@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/thyge/gonmos/pkg/nmos"
@@ -27,20 +30,20 @@ func main() {
 	// example config
 	d := &nmos.NMOSDevice{
 		Id:          uuid.New(),
-		Version:     "1441704616:890020555",
+		Version:     fmt.Sprintf("%s:0", strconv.FormatInt(time.Now().Unix(), 10)),
 		Description: "test",
 		Label:       "Test",
-		Type:        "urn:x-nmos:device:pipeline",
+		Type:        "urn:x-nmos:device:generic",
 		Tags:        nmos.NMOSTags{},
 	}
 	d.Controls = append(d.Controls, nmos.NMOSControl{
-		Type: "urn:x-manufacturer:control:generic",
+		Type: "urn:x-nmos:control:sr-ctrl/v1.1",
 		Href: "",
 	})
 
 	d.Senders = append(d.Senders, nmos.NMOSSender{
 		Id:                 uuid.New(),
-		Version:            "1:1",
+		Version:            fmt.Sprintf("%s:0", strconv.FormatInt(time.Now().Unix(), 10)),
 		Description:        "Test Card",
 		Label:              "Test Card",
 		Tags:               nmos.NMOSTags{},

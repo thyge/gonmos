@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -55,7 +57,7 @@ func (n *NMOSNodeData) Init(port int) {
 	hostName, _ := os.Hostname()
 	splitHostName := strings.Split(hostName, ".")
 	n.Description = fmt.Sprintf("%s-node", splitHostName[0])
-	n.Version = "1441973902:879053935"
+	n.Version = fmt.Sprintf("%s:0", strconv.FormatInt(time.Now().Unix(), 10))
 	n.Hostname = hostName
 	n.Label = splitHostName[0]
 	n.Id = uuid.New()
