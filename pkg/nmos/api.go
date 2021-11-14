@@ -60,19 +60,15 @@ func handleQueryAPI(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("%s", body)
 }
 
-func (n *NMOSWebServer) handleConnectionAPI(w http.ResponseWriter, r *http.Request) {
+func (n *NMOSWebServer) handleSendersAPI(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
-	version := vars["version"]
+	// version := vars["version"]
 	mode := vars["mode"]
 	resource := vars["resource"]
 	id := vars["id"]
 	fmt.Println(vars)
-	if version == "" {
-		json.NewEncoder(w).Encode([]string{"v1.0/", "v1.1/", "v1.2/", "v1.3/"})
-		return
-	}
 	if (mode == "bulk") || (mode == "single") {
 		if resource == "" {
 			json.NewEncoder(w).Encode([]string{"senders/", "recievers/"})
@@ -213,11 +209,23 @@ func (n *NMOSWebServer) InitNode(nodeptr *NMOSNodeData, deviceptr *NMOSDevice) {
 	nodeSubRouter.HandleFunc("/{version}/{resourcePath}", n.handleNodeAPI)
 	// IS-05
 	conSubRouter := n.Router.PathPrefix("/x-nmos/connection").Subrouter()
-	conSubRouter.HandleFunc("", n.handleConnectionAPI)
-	conSubRouter.HandleFunc("/{version}", n.handleConnectionAPI)
-	conSubRouter.HandleFunc("/{version}/{mode}", n.handleConnectionAPI)
-	conSubRouter.HandleFunc("/{version}/{mode}/{resource}", n.handleConnectionAPI)
-	conSubRouter.HandleFunc("/{version}/{mode}/{resource}/{id}", n.handleConnectionAPI)
+	conSubRouter.HandleFunc("", func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode([]string{"v1.0/", "v1.1/", "v1.2/", "v1.3/"})
+	})
+	conSubRouter.HandleFunc("/{version}", func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode([]string{"senders/", "recievers/", "sinks/"})
+	})
+
+	conSubRouter.HandleFunc("/{version}/single", n.handleSendersAPI)
+	conSubRouter.HandleFunc("/{version}/single/senders", n.handleSendersAPI)
+	conSubRouter.HandleFunc("/{version}/single/senders/{id}", n.handleSendersAPI)
+
+	conSubRouter.HandleFunc("/{version}/single/recievers", n.handleSendersAPI)
+	conSubRouter.HandleFunc("/{version}/single/recievers/{id}", n.handleSendersAPI)
+	// IS-11
+	conSubRouter.HandleFunc("/{version}/single/sinks/{sinkId}", n.handleSendersAPI)
+	conSubRouter.HandleFunc("/{version}/single/sinks/{sinkId}/properties", n.handleSendersAPI)
+	conSubRouter.HandleFunc("/{version}/single/sinks/{sinkId}/edid", n.handleSendersAPI)
 }
 
 func (n *NMOSWebServer) InitQuery() {
