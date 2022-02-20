@@ -3,6 +3,7 @@ module github.com/thyge/gonmos
 go 1.16
 
 require (
+	github.com/getlantern/systray v1.1.0
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/mux v1.8.0
 	github.com/grandcat/zeroconf v1.0.0
