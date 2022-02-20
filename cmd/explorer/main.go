@@ -26,9 +26,8 @@ func GetResource(uri string) {
 		}
 		nodes := []nmos.NMOSNodeData{}
 		json.Unmarshal(body, &nodes)
-		for _, n := range nodes {
-			log.Println(n.Hostname, n.Href)
-		}
+		stringStruct, _ := json.MarshalIndent(nodes, "", "\t")
+		fmt.Println(string(stringStruct))
 	} else {
 		log.Println("failed get on:", uri)
 	}

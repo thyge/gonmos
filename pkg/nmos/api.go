@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/grandcat/zeroconf"
 )
@@ -37,6 +38,10 @@ func handleRegBase(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode([]string{"resource/", "health/"})
 }
 
+func homeHandler(w http.ResponseWriter, r *http.Request) {
+	log.Println(r.Host, r.URL.Path)
+}
+
 func handleNMOSBase(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode([]string{"node/", "query/", "registration/"})
 }
@@ -55,25 +60,70 @@ func handleQueryAPI(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("%s", body)
 }
 
+func (n *NMOSWebServer) handleSendersAPI(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	vars := mux.Vars(r)
+	// version := vars["version"]
+	mode := vars["mode"]
+	resource := vars["resource"]
+	id := vars["id"]
+	fmt.Println(vars)
+	if (mode == "bulk") || (mode == "single") {
+		if resource == "" {
+			json.NewEncoder(w).Encode([]string{"senders/", "recievers/"})
+		} else {
+			if id == "" {
+				// Get all uuids
+				var sender_uuids []uuid.UUID
+				for i := 0; i < len(n.Device.Senders); i++ {
+					sender_uuids = append(sender_uuids, n.Device.Senders[0].Device_id)
+				}
+				// Return all senders UUID
+				enc := json.NewEncoder(w)
+				enc.SetIndent("", "\t")
+				enc.Encode(sender_uuids)
+			} else {
+				// Match UUID with uuid in array
+				queryuuid, _ := uuid.Parse(id)
+				for i := 0; i < len(n.Device.Senders); i++ {
+					if queryuuid == n.Device.Senders[i].Device_id {
+						enc := json.NewEncoder(w)
+						enc.SetIndent("", "\t")
+						enc.Encode(n.Device.Senders[i])
+					}
+				}
+			}
+		}
+	} else {
+		json.NewEncoder(w).Encode([]string{"bulk/", "single/"})
+	}
+}
+
 func (n *NMOSWebServer) handleNodeAPI(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	vars := mux.Vars(r)
 	version := vars["version"]
 	rpath := vars["resourcePath"]
+
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "\t")
+
 	if version == "" {
-		json.NewEncoder(w).Encode([]string{"v1.0/", "v1.1/", "v1.2/", "v1.3/"})
+		enc.Encode([]string{"v1.0/", "v1.1/", "v1.2/", "v1.3/"})
 		return
 	}
-	if rpath == "" {
-		json.NewEncoder(w).Encode([]string{"devices/", "flows/", "receivers/", "self/", "senders/", "sources/"})
-	}
-	if rpath == "self" {
-		enc := json.NewEncoder(w)
-		enc.SetIndent("", "\t")
+	switch rpath {
+	case "self":
 		enc.Encode(n.Node)
+	case "devices":
+		enc.Encode(n.Device)
+	case "senders":
+		enc.Encode(n.Device.Senders)
+	default:
+		enc.Encode([]string{"devices/", "flows/", "receivers/", "self/", "senders/", "sources/"})
 	}
-	fmt.Println(version, rpath)
 }
 
 func handleRegHealth(w http.ResponseWriter, r *http.Request) {
@@ -84,6 +134,7 @@ type NMOSWebServer struct {
 	Router           *mux.Router
 	Port             int
 	Node             *NMOSNodeData
+	Device           *NMOSDevice
 	srv              *http.Server
 	MDNSNode         *zeroconf.Server
 	MDNSQuery        *zeroconf.Server
@@ -136,8 +187,9 @@ func (n *NMOSWebServer) Stop() {
 	n.srv.Close()
 }
 
-func (n *NMOSWebServer) InitNode(nodeptr *NMOSNodeData) {
+func (n *NMOSWebServer) InitNode(nodeptr *NMOSNodeData, deviceptr *NMOSDevice) {
 	n.Node = nodeptr
+	n.Device = deviceptr
 	// MDNS
 	hostName, _ := os.Hostname()
 	hostName = strings.Replace(hostName, ".local", "", -1)
@@ -148,17 +200,39 @@ func (n *NMOSWebServer) InitNode(nodeptr *NMOSNodeData) {
 		panic(err)
 	}
 	// NODE API
+	n.Router.HandleFunc("/", homeHandler)
 	n.Router.HandleFunc("/x-nmos", handleNMOSBase)
+	// IS-04
 	nodeSubRouter := n.Router.PathPrefix("/x-nmos/node").Subrouter()
 	nodeSubRouter.HandleFunc("", n.handleNodeAPI)
 	nodeSubRouter.HandleFunc("/{version}", n.handleNodeAPI)
 	nodeSubRouter.HandleFunc("/{version}/{resourcePath}", n.handleNodeAPI)
+	// IS-05
+	conSubRouter := n.Router.PathPrefix("/x-nmos/connection").Subrouter()
+	conSubRouter.HandleFunc("", func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode([]string{"v1.0/", "v1.1/", "v1.2/", "v1.3/"})
+	})
+	conSubRouter.HandleFunc("/{version}", func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode([]string{"senders/", "recievers/", "sinks/"})
+	})
+
+	conSubRouter.HandleFunc("/{version}/single", n.handleSendersAPI)
+	conSubRouter.HandleFunc("/{version}/single/senders", n.handleSendersAPI)
+	conSubRouter.HandleFunc("/{version}/single/senders/{id}", n.handleSendersAPI)
+
+	conSubRouter.HandleFunc("/{version}/single/recievers", n.handleSendersAPI)
+	conSubRouter.HandleFunc("/{version}/single/recievers/{id}", n.handleSendersAPI)
+	// IS-11
+	conSubRouter.HandleFunc("/{version}/single/sinks/{sinkId}", n.handleSendersAPI)
+	conSubRouter.HandleFunc("/{version}/single/sinks/{sinkId}/properties", n.handleSendersAPI)
+	conSubRouter.HandleFunc("/{version}/single/sinks/{sinkId}/edid", n.handleSendersAPI)
 }
 
 func (n *NMOSWebServer) InitQuery() {
 	// MDNS
-	hostName, _ := os.Hostname()
-	hostName = strings.Replace(hostName, ".local", "", -1)
+	hostNameDomain, _ := os.Hostname()
+	splitHostName := strings.Split(hostNameDomain, ".")
+	hostName := splitHostName[0]
 	txt := MdnsText(99, []string{"v1.0", "v1.1", "v1.2", "v1.3"}, "http", false)
 	var err error
 	n.MDNSQuery, err = zeroconf.Register(hostName, "_nmos-query._tcp", "local", n.Port, txt, nil)
@@ -174,15 +248,16 @@ func (n *NMOSWebServer) InitQuery() {
 
 func (n *NMOSWebServer) InitRegister() {
 	// MDNS
-	hostName, _ := os.Hostname()
-	hostName = strings.Replace(hostName, ".local", "", -1)
+	hostNameDomain, _ := os.Hostname()
+	splitHostName := strings.Split(hostNameDomain, ".")
+	hostName := splitHostName[0]
 	txt := MdnsText(99, []string{"v1.0", "v1.1", "v1.2", "v1.3"}, "http", false)
 	var err error
 	n.MDNSRegistration, err = zeroconf.Register(hostName, "_nmos-registration._tcp", "local", n.Port, txt, nil)
 	if err != nil {
 		panic(err)
 	}
-	n.MDNSRegister, err = zeroconf.Register(hostName, "_nmos-registration._tcp", "local", n.Port, txt, nil)
+	n.MDNSRegister, err = zeroconf.Register(hostName, "_nmos-register._tcp", "local", n.Port, txt, nil)
 	if err != nil {
 		panic(err)
 	}
